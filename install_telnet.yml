@@ -1,0 +1,9 @@
+---
+- name: Install telnet on Rocky Linux
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure telnet is installed
+      dnf:
+        name: telnet
+        state: present
