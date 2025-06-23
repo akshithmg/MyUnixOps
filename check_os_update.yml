@@ -1,0 +1,9 @@
+---
+- name: Check and install OS updates
+  hosts: all
+  become: true
+  tasks:
+    - name: Upgrade all packages
+      yum:
+        name: '*'
+        state: latest
