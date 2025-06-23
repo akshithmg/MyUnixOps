@@ -1,5 +1,5 @@
 ---
-- name: Install telnet on Rocky Linux
+- name: Install telnet package on UNIX server
   hosts: all
   become: true
   tasks:
