@@ -13,10 +13,10 @@
     - name: Run script on remote host
       ansible.builtin.shell: /tmp/change_script.sh
       environment:
-        CHANGE_NUMBER: "{{ change_number }}"
-        CN_NAME: "{{ cn_name }}"
-        CA_NAME: "{{ ca_name }}"
-        PASSWORD: "{{ password }}"
+        CHANGE_NUMBER: "{{ CHANGE_NUMBER }}"
+        CN_NAME: "{{ CN_NAME }}"
+        CA_NAME: "{{ CA_NAME }}"
+        PASSWORD: "{{ PASSWORD }}"
       register: result
       failed_when: result.rc != 0
       no_log: false  # Hide sensitive output
