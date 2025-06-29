@@ -1,6 +1,6 @@
 ---
 - name: Execute Change Automation on Target Host
-  hosts: all  # Or limit to a specific group/host
+  hosts: all
   gather_facts: false
 
   tasks:
@@ -11,17 +11,17 @@
         mode: '0755'
 
     - name: Run script on remote host
-      ansible.builtin.shell: /tmp/change_script.sh
+      ansible.builtin.shell: /tmp/pfx_enroll_download.sh
       environment:
-        CHANGE_NUMBER: "{{ CHANGE_NUMBER }}"
-        CN_NAME: "{{ CN_NAME }}"
-        CA_NAME: "{{ CA_NAME }}"
-        PASSWORD: "{{ PASSWORD }}"
+        CHANGE_NUMBER: "{{ change_number }}"
+        CN_NAME: "{{ cn_name }}"
+        CA_NAME: "{{ ca_name }}"
+        PASSWORD: "{{ password }}"
       register: result
       failed_when: result.rc != 0
-      no_log: false  # Hide sensitive output
+      no_log: false  # Turn back to true later if password is exposed
 
     - name: Print stdout if script failed
       debug:
         msg: "{{ result.stdout_lines }}"
-        when: result.rc != 0
+      when: result.rc != 0
