@@ -1,0 +1,26 @@
+---
+- name: Execute Change Automation on Target Host
+  hosts: all  # Or limit to a specific group/host
+  gather_facts: false
+
+  tasks:
+    - name: Copy script to remote host
+      ansible.builtin.copy:
+        src: pfx_enroll_download.sh
+        dest: /tmp/pfx_enroll_download.sh
+        mode: '0755'
+
+    - name: Run script on remote host
+      ansible.builtin.shell: /tmp/change_script.sh
+      environment:
+        CHANGE_NUMBER: "{{ change_number }}"
+        CN_NAME: "{{ cn_name }}"
+        CA_NAME: "{{ ca_name }}"
+        PASSWORD: "{{ password }}"
+      register: result
+      failed_when: result.rc != 0
+      no_log: true  # Hide sensitive output
+
+    - name: Show script output
+      debug:
+        msg: "{{ result.stdout_lines }}"
