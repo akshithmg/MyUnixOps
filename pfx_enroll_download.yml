@@ -21,7 +21,12 @@
       failed_when: result.rc != 0
       no_log: false  # Turn back to true later if password is exposed
 
-    - name: Print stdout if script failed
+    - name: Print script output on success
+      debug:
+        msg: "{{ result.stdout_lines }}"
+      when: result.rc == 0
+
+    - name: Print script output on failure
       debug:
         msg: "{{ result.stdout_lines }}"
       when: result.rc != 0
