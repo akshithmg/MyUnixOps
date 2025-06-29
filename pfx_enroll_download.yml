@@ -21,6 +21,7 @@
       failed_when: result.rc != 0
       no_log: true  # Hide sensitive output
 
-    - name: Show script output
+    - name: Print stdout if script failed
       debug:
         msg: "{{ result.stdout_lines }}"
+        when: result.rc != 0
