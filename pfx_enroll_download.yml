@@ -19,7 +19,7 @@
         PASSWORD: "{{ password }}"
       register: result
       failed_when: result.rc != 0
-      no_log: false  # Turn back to true later if password is exposed
+      no_log: false
 
     - name: Print script output on success
       debug:
