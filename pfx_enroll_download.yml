@@ -19,7 +19,7 @@
         PASSWORD: "{{ password }}"
       register: result
       failed_when: result.rc != 0
-      no_log: true  # Hide sensitive output
+      no_log: false  # Hide sensitive output
 
     - name: Print stdout if script failed
       debug:
