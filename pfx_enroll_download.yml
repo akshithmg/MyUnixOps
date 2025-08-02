@@ -1,59 +1,70 @@
 ---
-- name: Execute Change Automation on Target Host
+- name: Execute Change Automation on Target Hosts
   hosts: all
   gather_facts: true
 
   vars:
+    # Default values (can be overridden by AWX survey)
     keyfactor_url: "https://fis.keyfactorpki.com"
-    template: "WebServer(13Month-ClientandServerAuth)PROD"
     https_proxy: "http://10.56.24.125:10022"
-    auth: "{{ lookup('env','KEYFACTOR_AUTH_BASIC') }}"  # or pull from AWX secrets
+    template: "WebServer(13Month-ClientandServerAuth)PROD"
 
   tasks:
+    - name: Prepare metadata JSON string from dict
+      set_fact:
+        metadata_json: >-
+          {{
+            {
+              "Email-Contact": email_contact,
+              "Device-Type": device_type,
+              "DataCenter-Location": datacenter_location,
+              "Description": description,
+              "Notification": notification,
+              "Folder": folder,
+              "Sub-Folder": sub_folder,
+              "Application-Contact-Primary": app_contact_primary,
+              "Application-Contact-Secondary": app_contact_secondary,
+              "Permissions": permissions,
+              "Contact": contact,
+              "ACME_Requester": acme_requester
+            } | to_json
+          }}
+
     - name: Copy enrollment script to remote host
       ansible.builtin.copy:
         src: ./scripts/pfx_enroll_download.sh
         dest: /tmp/pfx_enroll_download.sh
-        mode: '0755'
+        mode: '0700'
 
     - name: Run enrollment script on remote host
       ansible.builtin.shell: /tmp/pfx_enroll_download.sh
       environment:
-        AUTH: "{{ auth }}"
-        KEYFACTOR_URL: "{{ keyfactor_url }}"
-        HTTPS_PROXY: "{{ https_proxy }}"
-        TEMPLATE: "{{ template }}"
+        auth: "{{ auth }}"
+        change_number: "{{ change_number }}"
+        cn_name: "{{ cn_name }}"
+        ca_name: "{{ ca_name }}"
+        password: "{{ password }}"
+        dns_names: "{{ dns_names }}"
+        ip_addresses: "{{ ip_addresses }}"
+        keyfactor_url: "{{ keyfactor_url }}"
+        https_proxy: "{{ https_proxy }}"
+        template: "{{ template }}"
+        metadata_json: "{{ metadata_json }}"
+      register: result
+      failed_when: result.rc != 0
+      no_log: false
 
-        CHANGE_NUMBER: "{{ change_number }}"
-        CN_NAME: "{{ cn_name }}"
-        CA_NAME: "{{ ca_name }}"
-        PASSWORD: "{{ password }}"
-
-        DNS_NAMES: "{{ dns_names | join(',') }}"
-        IP_ADDRESSES: "{{ ip_addresses | join(',') }}"
-
-        METADATA_EMAIL_CONTACT: "{{ metadata_email_contact }}"
-        METADATA_DEVICE_TYPE: "{{ metadata_device_type }}"
-        METADATA_DATACENTER_LOCATION: "{{ metadata_datacenter_location }}"
-        METADATA_DESCRIPTION: "{{ metadata_description }}"
-        METADATA_NOTIFICATION: "{{ metadata_notification }}"
-        METADATA_FOLDER: "{{ metadata_folder }}"
-        METADATA_SUB_FOLDER: "{{ metadata_sub_folder }}"
-        METADATA_APPLICATION_CONTACT_PRIMARY: "{{ metadata_application_contact_primary }}"
-        METADATA_APPLICATION_CONTACT_SECONDARY: "{{ metadata_application_contact_secondary }}"
-        METADATA_PERMISSIONS: "{{ metadata_permissions }}"
-        METADATA_CONTACT: "{{ metadata_contact }}"
-        METADATA_ACME_REQUESTER: "{{ metadata_acme_requester }}"
-      register: enroll_result
-      failed_when: enroll_result.rc != 0
-      no_log: true  # Hide sensitive output
-
-    - name: Show enrollment output on success
+    - name: Print script output on success
       debug:
-        msg: "{{ enroll_result.stdout_lines }}"
-      when: enroll_result.rc == 0
+        msg: "{{ result.stdout_lines }}"
+      when: result.rc == 0
 
-    - name: Fail with error message on failure
-      fail:
-        msg: "Enrollment script failed. See above output."
-      when: enroll_result.rc != 0
+    - name: Print script output on failure
+      debug:
+        msg: "{{ result.stdout_lines }}"
+      when: result.rc != 0
+
+    - name: Clean up script after execution (optional)
+      ansible.builtin.file:
+        path: /tmp/pfx_enroll_download.sh
+        state: absent
