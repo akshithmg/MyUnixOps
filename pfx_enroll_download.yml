@@ -1,16 +1,14 @@
----
-- name: Execute Change Automation on Target Hosts
+- name: Enroll cert on controller and distribute to hosts
   hosts: all
-  gather_facts: true
-
+  gather_facts: false
   vars:
-    # Default values (can be overridden by AWX survey)
+    # Default values - can be overridden by survey
     keyfactor_url: "https://fis.keyfactorpki.com"
     https_proxy: "http://10.56.24.125:10022"
     template: "WebServer(13Month-ClientandServerAuth)PROD"
 
   tasks:
-    - name: Prepare metadata JSON string from dict
+    - name: Prepare metadata JSON string (on controller)
       set_fact:
         metadata_json: >-
           {{
@@ -29,42 +27,59 @@
               "ACME_Requester": acme_requester
             } | to_json
           }}
+      delegate_to: localhost
 
-    - name: Copy enrollment script to remote host
-      ansible.builtin.copy:
-        src: ./scripts/pfx_enroll_download.sh
-        dest: /tmp/pfx_enroll_download.sh
-        mode: '0700'
+    - name: Prepare DNS JSON array (on controller)
+      set_fact:
+        dns_names_json: "{{ dns_names | map('quote') | list | to_json }}"
+      delegate_to: localhost
 
-    - name: Run enrollment script on remote host
-      ansible.builtin.shell: /tmp/pfx_enroll_download.sh
+    - name: Prepare IP JSON array (on controller)
+      set_fact:
+        ip_addresses_json: "{{ ip_addresses | map('quote') | list | to_json }}"
+      delegate_to: localhost
+
+    - name: Run enrollment script on controller node
+      shell: >
+        /bin/bash ./scripts/pfx_enroll_download.sh
       environment:
         auth: "{{ auth }}"
         change_number: "{{ change_number }}"
         cn_name: "{{ cn_name }}"
         ca_name: "{{ ca_name }}"
         password: "{{ password }}"
-        dns_names: "{{ dns_names }}"
-        ip_addresses: "{{ ip_addresses }}"
         keyfactor_url: "{{ keyfactor_url }}"
         https_proxy: "{{ https_proxy }}"
         template: "{{ template }}"
         metadata_json: "{{ metadata_json }}"
-      register: result
-      failed_when: result.rc != 0
+        dns_names_json: "{{ dns_names_json }}"
+        ip_addresses_json: "{{ ip_addresses_json }}"
+      register: enroll_result
+      delegate_to: localhost
       no_log: false
 
-    - name: Print script output on success
-      debug:
-        msg: "{{ result.stdout_lines }}"
-      when: result.rc == 0
+    - name: Copy certificate file to remote hosts
+      copy:
+        src: "./{{ cn_name }}.pfx"
+        dest: "/tmp/{{ cn_name }}.pfx"
+        mode: '0600'
 
-    - name: Print script output on failure
-      debug:
-        msg: "{{ result.stdout_lines }}"
-      when: result.rc != 0
+    - name: Copy backup tar file to remote hosts
+      copy:
+        src: "./{{ change_number }}.tar"
+        dest: "/tmp/{{ change_number }}.tar"
+        mode: '0600'
 
-    - name: Clean up script after execution (optional)
-      ansible.builtin.file:
-        path: /tmp/pfx_enroll_download.sh
+    - name: Clean up generated files on controller (optional)
+      file:
+        path: "{{ item }}"
         state: absent
+      loop:
+        - "./{{ cn_name }}.pfx"
+        - "./{{ change_number }}.tar"
+        - "./payload.json"
+        - "./response.json"
+        - "./certinfo.json"
+        - "./temp_{{ cn_name }}.pfx"
+        - "./{{ change_number }}"
+      delegate_to: localhost
