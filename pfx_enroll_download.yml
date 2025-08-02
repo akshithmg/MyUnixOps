@@ -1,60 +1,59 @@
 ---
-- name: Download script on Ansible control node (proxy used here)
-  hosts: localhost
-  gather_facts: no
-  tasks:
-    - name: Ensure scripts directory exists on control node
-      ansible.builtin.file:
-        path: ./scripts
-        state: directory
-        mode: '0755'
-
-    - name: Download script using HTTPS proxy on control node
-      ansible.builtin.get_url:
-        url: "https://example.com/path/to/pfx_enroll_download.sh"
-        dest: "./scripts/pfx_enroll_download.sh"
-        mode: '0700'
-      environment:
-        https_proxy: "http://192.168.30.1:8080"
-        http_proxy: "http://192.168.30.1:8080"
-        no_proxy: "localhost,127.0.0.1"
-
-- name: Copy and run downloaded script on target hosts (no proxy used)
+- name: Execute Change Automation on Target Host
   hosts: all
-  gather_facts: yes
+  gather_facts: true
+
   vars:
-    remote_script_path: /tmp/pfx_enroll_download.sh
+    keyfactor_url: "https://fis.keyfactorpki.com"
+    template: "WebServer(13Month-ClientandServerAuth)PROD"
+    https_proxy: "http://10.56.24.125:10022"
+    auth: "{{ lookup('env','KEYFACTOR_AUTH_BASIC') }}"  # or pull from AWX secrets
 
   tasks:
-    - name: Copy script to remote host
+    - name: Copy enrollment script to remote host
       ansible.builtin.copy:
         src: ./scripts/pfx_enroll_download.sh
-        dest: "{{ remote_script_path }}"
-        mode: '0700'
+        dest: /tmp/pfx_enroll_download.sh
+        mode: '0755'
 
-    - name: Run script on remote host
-      ansible.builtin.shell: "{{ remote_script_path }}"
+    - name: Run enrollment script on remote host
+      ansible.builtin.shell: /tmp/pfx_enroll_download.sh
       environment:
+        AUTH: "{{ auth }}"
+        KEYFACTOR_URL: "{{ keyfactor_url }}"
+        HTTPS_PROXY: "{{ https_proxy }}"
+        TEMPLATE: "{{ template }}"
+
         CHANGE_NUMBER: "{{ change_number }}"
         CN_NAME: "{{ cn_name }}"
         CA_NAME: "{{ ca_name }}"
         PASSWORD: "{{ password }}"
-      register: result
-      failed_when: result.rc != 0
-      no_log: false
 
-    - name: Print script output on success
+        DNS_NAMES: "{{ dns_names | join(',') }}"
+        IP_ADDRESSES: "{{ ip_addresses | join(',') }}"
+
+        METADATA_EMAIL_CONTACT: "{{ metadata_email_contact }}"
+        METADATA_DEVICE_TYPE: "{{ metadata_device_type }}"
+        METADATA_DATACENTER_LOCATION: "{{ metadata_datacenter_location }}"
+        METADATA_DESCRIPTION: "{{ metadata_description }}"
+        METADATA_NOTIFICATION: "{{ metadata_notification }}"
+        METADATA_FOLDER: "{{ metadata_folder }}"
+        METADATA_SUB_FOLDER: "{{ metadata_sub_folder }}"
+        METADATA_APPLICATION_CONTACT_PRIMARY: "{{ metadata_application_contact_primary }}"
+        METADATA_APPLICATION_CONTACT_SECONDARY: "{{ metadata_application_contact_secondary }}"
+        METADATA_PERMISSIONS: "{{ metadata_permissions }}"
+        METADATA_CONTACT: "{{ metadata_contact }}"
+        METADATA_ACME_REQUESTER: "{{ metadata_acme_requester }}"
+      register: enroll_result
+      failed_when: enroll_result.rc != 0
+      no_log: true  # Hide sensitive output
+
+    - name: Show enrollment output on success
       debug:
-        msg: "{{ result.stdout_lines }}"
-      when: result.rc == 0
+        msg: "{{ enroll_result.stdout_lines }}"
+      when: enroll_result.rc == 0
 
-    - name: Print script output on failure
-      debug:
-        msg: "{{ result.stdout_lines }}"
-      when: result.rc != 0
-
-    - name: Remove script after execution
-      ansible.builtin.file:
-        path: "{{ remote_script_path }}"
-        state: absent
-      ignore_errors: yes
+    - name: Fail with error message on failure
+      fail:
+        msg: "Enrollment script failed. See above output."
+      when: enroll_result.rc != 0
