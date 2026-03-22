@@ -1,2 +1,3 @@
-# MyUnixOps
-Vault Cheat Sheet - reference/vault.md
+</> MyUnixOps
+
+[Vault Cheat Sheet](reference/vault.md)
