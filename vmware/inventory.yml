@@ -1,0 +1,8 @@
+all:
+  hosts:
+
+    server01:
+      vmx_path: 'D:\Virtual Machines\server01.com\server01.com.vmx'
+
+    server02:
+      vmx_path: 'D:\Virtual Machines\server02.com\server02.com.vmx'

@@ -31,17 +31,19 @@
 
     - name: Prepare DNS JSON array (on controller)
       set_fact:
-        dns_names_json: "{{ dns_names | map('quote') | list | to_json }}"
+        dns_names_json: "{{ dns_names | list | to_json }}"
       delegate_to: localhost
 
     - name: Prepare IP JSON array (on controller)
       set_fact:
-        ip_addresses_json: "{{ ip_addresses | map('quote') | list | to_json }}"
+        ip_addresses_json: "{{ ip_addresses | list | to_json }}"
       delegate_to: localhost
 
     - name: Run enrollment script on controller node
       shell: >
         /bin/bash ./scripts/pfx_enroll_download.sh
+      args:
+        chdir: "{{ playbook_dir }}"
       environment:
         auth: "{{ auth }}"
         change_number: "{{ change_number }}"
@@ -56,24 +58,44 @@
         ip_addresses_json: "{{ ip_addresses_json }}"
       register: enroll_result
       delegate_to: localhost
-      no_log: false
+      no_log: true
+
+    - name: Fail if enrollment script failed
+      fail:
+        msg: "Enrollment script failed (rc={{ enroll_result.rc }}). See controller logs."
+      when: enroll_result.rc is defined and enroll_result.rc != 0
 
     - name: Copy certificate file to remote hosts
       copy:
         src: "./{{ cn_name }}.pfx"
         dest: "/tmp/{{ cn_name }}.pfx"
         mode: '0600'
+      when: pfx_stat.stat.exists
+
+    - name: Check for generated pfx on controller
+      stat:
+        path: "{{ playbook_dir }}/{{ cn_name }}.pfx"
+      register: pfx_stat
+      delegate_to: localhost
 
     - name: Copy backup tar file to remote hosts
       copy:
         src: "./{{ change_number }}.tar"
         dest: "/tmp/{{ change_number }}.tar"
         mode: '0600'
+      when: tar_stat.stat.exists
+
+    - name: Check for generated tar on controller
+      stat:
+        path: "{{ playbook_dir }}/{{ change_number }}.tar"
+      register: tar_stat
+      delegate_to: localhost
 
     - name: Clean up generated files on controller (optional)
       file:
         path: "{{ item }}"
         state: absent
+        recurse: yes
       loop:
         - "./{{ cn_name }}.pfx"
         - "./{{ change_number }}.tar"
