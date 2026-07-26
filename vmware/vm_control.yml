@@ -1,16 +1,15 @@
 ---
 - name: VMware VM Control
-  hosts: all
+  hosts: "{{ target_vm }}"
   connection: local
 
   tasks:
 
-    - name: Display VM action
+    - name: Show request
       ansible.builtin.debug:
         msg:
           - "VM: {{ inventory_hostname }}"
           - "Action: {{ vm_action }}"
-          - "Path: {{ vmx_path }}"
 
     - name: Execute VMware action
       ansible.builtin.command:
