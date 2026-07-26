@@ -1,19 +1,13 @@
 ---
 - name: VMware VM Control
-  hosts: "{{ target_vm }}"
-  connection: local
+  hosts: wsl-control
+  become: false
 
   tasks:
-
-    - name: Show request
-      ansible.builtin.debug:
-        msg:
-          - "VM: {{ inventory_hostname }}"
-          - "Action: {{ vm_action }}"
 
     - name: Execute VMware action
       ansible.builtin.command:
         cmd: >
           "/mnt/c/Program Files (x86)/VMware/VMware Workstation/vmrun.exe"
           {{ vm_action }}
-          "{{ vmx_path }}"
+          "D:\Virtual Machines\{{ target_vm }}.com\{{ target_vm }}.com.vmx"
