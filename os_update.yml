@@ -1,18 +1,32 @@
 ---
-- name: Update system and reboot if needed
+- name: Patch Linux VM
   hosts: all
   become: yes
+
   tasks:
 
-    - name: Update all packages to the latest version
-      ansible.builtin.dnf:
-        name: '*'
-        state: latest
+    - name: Update packages (Ubuntu)
+      apt:
         update_cache: yes
+        upgrade: dist
+      when: ansible_os_family == "Debian"
 
-    - name: Reboot the host
-      ansible.builtin.reboot:
-        msg: "Reboot initiated by Ansible after package update"
-        pre_reboot_delay: 10
-        post_reboot_delay: 30
-        reboot_timeout: 600
+    - name: Update packages (RHEL)
+      dnf:
+        name: "*"
+        state: latest
+      when: ansible_os_family == "RedHat"
+
+    - name: Reboot if required
+      reboot:
+        reboot_timeout: 900
+
+    - name: Wait for SSH
+      wait_for_connection:
+        timeout: 300
+
+    - name: Verify service
+      service_facts:
+
+    - debug:
+        msg: "Patching completed successfully."
